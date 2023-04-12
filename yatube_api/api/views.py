@@ -1,46 +1,31 @@
-from posts.models import Comment, Group, Post
-from rest_framework import status, viewsets
-from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from rest_framework import permissions, viewsets
 
+from .permissions import CheckAuth
 from .serializers import CommentSerializer, GroupSerializer, PostSerializer
+from posts.models import Comment, Group, Post
 
 
 class PostViewSet(viewsets.ModelViewSet):
     """ViewSet для модели Post."""
     queryset = Post.objects.all()
     serializer_class = PostSerializer
+    permission_classes = (CheckAuth, permissions.IsAuthenticated)
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    def perform_list(self, serializer):
-        if self.request.user.is_authenticated:
-            return super().list(serializer)
-        else:
-            return Response(
-                "Ошибка авторизации.",
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+    # def perform_update(self, serializer):
+    #     if serializer.instance.author != self.request.user:
+    #         raise PermissionDenied('Изменение чужого контента запрещено!')
+    #     serializer.save()
 
-    def update(self, request, *args, **kwargs):  # Как реализовать это верно?
-        post = self.get_object()                 # Через perform/serializer
-        if self.request.user == post.author:
-            return super().update(request, *args, **kwargs)
-        else:
-            return Response(
-                {"error": "Недостаточно прав для редактирования."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-    def destroy(self, request, *args, **kwargs):
-        post = self.get_object()
-        if self.request.user == post.author:
-            return super().destroy(request, *args, **kwargs)
-        else:
-            return Response(
-                {"error": "Недостаточно прав для удаления."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+    # def perform_destroy(self, instance):
+    #     if instance.author != self.request.user:
+    #         raise PermissionDenied('Удаление чужого контента запрещено!')
+    #     instance.delete()
+    #  Попробовал permissions,
+    #  но интересно, правильно ли у меня реализованы обычные методы?
 
 
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
@@ -53,6 +38,7 @@ class CommentViewSet(viewsets.ModelViewSet):
     """ViewSet для модели."""
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
+    permission_classes = (CheckAuth, permissions.IsAuthenticated)
 
     def get_queryset(self):
         post_id = self.kwargs.get('post_id')
@@ -60,24 +46,15 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         post_id = self.kwargs.get('post_id')
-        serializer.save(author=self.request.user, post_id=post_id)
+        post = get_object_or_404(Post, id=post_id)
+        serializer.save(author=self.request.user, post=post)
 
-    def update(self, request, *args, **kwargs):
-        comment = self.get_object()
-        if self.request.user == comment.author:
-            return super().update(request, *args, **kwargs)
-        else:
-            return Response(
-                {"error": "Недостаточно прав для редактирования."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+    # def perform_update(self, serializer):
+    #     if self.request.user != serializer.instance.author:
+    #         raise PermissionDenied("Изменение чужих комментариев запрещено.")
+    #     serializer.save()
 
-    def destroy(self, request, *args, **kwargs):
-        comment = self.get_object()
-        if self.request.user == comment.author_id:
-            return super().destroy(request, *args, **kwargs)
-        else:
-            return Response(
-                {"error": "Недостаточно прав для удаления."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+    # def perform_destroy(self, instance):
+    #     if instance.author != self.request.user:
+    #         raise PermissionDenied('Удаление чужого комментария запрещено!')
+    #     instance.delete()
