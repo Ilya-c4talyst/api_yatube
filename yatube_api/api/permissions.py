@@ -1,7 +1,7 @@
 from rest_framework import permissions
 
 
-class CheckAuth(permissions.BasePermission):
+class IsOwnerOrReadOnly(permissions.BasePermission):
     """Проверка на автора для управления даннымиа."""
 
     def has_object_permission(self, request, view, object):
